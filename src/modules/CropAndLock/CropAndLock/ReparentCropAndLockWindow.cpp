@@ -39,6 +39,9 @@ ReparentCropAndLockWindow::ReparentCropAndLockWindow(std::wstring const& titleSt
         CW_USEDEFAULT, CW_USEDEFAULT, adjustedWidth, adjustedHeight, nullptr, nullptr, instance, this));
     WINRT_ASSERT(m_window);
 
+    int useImmersiveDarkMode = 1;
+    DwmSetWindowAttribute(m_window, DWMWA_USE_IMMERSIVE_DARK_MODE, &useImmersiveDarkMode, sizeof(useImmersiveDarkMode));
+
     m_childWindow = std::make_unique<ChildWindow>(width, height, m_window);
 }
 

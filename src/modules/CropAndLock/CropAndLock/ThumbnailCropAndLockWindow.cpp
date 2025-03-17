@@ -75,6 +75,10 @@ ThumbnailCropAndLockWindow::ThumbnailCropAndLockWindow(std::wstring const& title
 
     winrt::check_bool(CreateWindowExW(exStyle, ClassName.c_str(), titleString.c_str(), style,
         CW_USEDEFAULT, CW_USEDEFAULT, adjustedWidth, adjustedHeight, nullptr, nullptr, instance, this));
+
+    int useImmersiveDarkMode = 1;
+    DwmSetWindowAttribute(m_window, DWMWA_USE_IMMERSIVE_DARK_MODE, &useImmersiveDarkMode, sizeof(useImmersiveDarkMode));
+
     WINRT_ASSERT(m_window);
 }
 
