@@ -1,8 +1,22 @@
 #include "pch.h"
 #include "ReparentCropAndLockWindow.h"
+#include <common/Themes/theme_helpers.h>
+#include <common/Themes/theme_listener.h>
 
 const std::wstring ReparentCropAndLockWindow::ClassName = L"CropAndLock.ReparentCropAndLockWindow";
 std::once_flag ReparentCropAndLockWindowClassRegistration;
+
+// Theming
+ThemeListener theme_listener{};
+HWND CurrentWindow;
+
+void handleTheme()
+{
+    auto theme = theme_listener.AppTheme;
+    auto isDark = theme == Theme::Dark;
+    Logger::info(L"Theme is now {}", isDark ? L"Dark" : L"Light");
+    ThemeHelpers::SetImmersiveDarkMode(CurrentWindow, isDark);
+}
 
 void ReparentCropAndLockWindow::RegisterWindowClass()
 {
@@ -39,8 +53,10 @@ ReparentCropAndLockWindow::ReparentCropAndLockWindow(std::wstring const& titleSt
         CW_USEDEFAULT, CW_USEDEFAULT, adjustedWidth, adjustedHeight, nullptr, nullptr, instance, this));
     WINRT_ASSERT(m_window);
 
-    int useImmersiveDarkMode = 1;
-    DwmSetWindowAttribute(m_window, DWMWA_USE_IMMERSIVE_DARK_MODE, &useImmersiveDarkMode, sizeof(useImmersiveDarkMode));
+    CurrentWindow = m_window;
+    // Attach theme handling
+    theme_listener.AddChangedHandler(handleTheme);
+    handleTheme();
 
     m_childWindow = std::make_unique<ChildWindow>(width, height, m_window);
 }
