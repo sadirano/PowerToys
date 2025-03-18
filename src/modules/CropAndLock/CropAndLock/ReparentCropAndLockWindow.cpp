@@ -90,6 +90,17 @@ void ReparentCropAndLockWindow::CropAndLock(HWND windowToCrop, RECT cropRect)
     // Save original state
     SaveOriginalState();
 
+    // Retrieve the icon handle from the target window
+    HICON hIcon = reinterpret_cast<HICON>(SendMessage(m_currentTarget, WM_GETICON, ICON_BIG, 0));
+    if (!hIcon)
+    {
+        hIcon = reinterpret_cast<HICON>(GetClassLongPtr(m_currentTarget, GCLP_HICON));
+    }
+    if (!hIcon)
+    {
+        hIcon = LoadIcon(nullptr, IDI_APPLICATION);
+    }
+
     RECT windowRect = {};
     winrt::check_bool(GetWindowRect(m_currentTarget, &windowRect));
     auto clientRect = ClientAreaInScreenSpace(m_currentTarget);
@@ -138,6 +149,10 @@ void ReparentCropAndLockWindow::CropAndLock(HWND windowToCrop, RECT cropRect)
 
     winrt::check_bool(SetWindowPos(m_window, HWND_TOPMOST, windowRect.left, windowRect.top, adjustedWidth, adjustedHeight, SWP_SHOWWINDOW | SWP_NOACTIVATE));
     winrt::check_bool(SetWindowPos(m_childWindow->m_window, nullptr, 0, 0, width, height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE));
+
+    // Set the icon for the reparented window
+    SendMessage(m_window, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(hIcon));
+    SendMessage(m_window, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(hIcon));
 
     // Reparent the target window
     SetParent(m_currentTarget, m_childWindow->m_window);

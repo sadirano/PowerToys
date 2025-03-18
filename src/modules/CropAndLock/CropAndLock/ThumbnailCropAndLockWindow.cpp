@@ -123,6 +123,17 @@ void ThumbnailCropAndLockWindow::CropAndLock(HWND windowToCrop, RECT cropRect)
     DisconnectTarget();
     m_currentTarget = windowToCrop;
 
+    // Retrieve the icon handle from the target window
+    HICON hIcon = reinterpret_cast<HICON>(SendMessage(m_currentTarget, WM_GETICON, ICON_BIG, 0));
+    if (!hIcon)
+    {
+        hIcon = reinterpret_cast<HICON>(GetClassLongPtr(m_currentTarget, GCLP_HICON));
+    }
+    if (!hIcon)
+    {
+        hIcon = LoadIcon(nullptr, IDI_APPLICATION);
+    }
+
     // Adjust the crop rect to be in the window space as reported by the DWM
     RECT windowRect = {};
     winrt::check_hresult(DwmGetWindowAttribute(m_currentTarget, DWMWA_EXTENDED_FRAME_BOUNDS, reinterpret_cast<void*>(&windowRect), sizeof(windowRect)));
@@ -146,6 +157,10 @@ void ThumbnailCropAndLockWindow::CropAndLock(HWND windowToCrop, RECT cropRect)
     auto adjustedWidth = windowRect.right - windowRect.left;
     auto adjustedHeight = windowRect.bottom - windowRect.top;
     winrt::check_bool(SetWindowPos(m_window, HWND_TOPMOST, 0, 0, adjustedWidth, adjustedHeight, SWP_NOMOVE | SWP_SHOWWINDOW));
+
+    // Set the icon for the thumbnail window
+    SendMessage(m_window, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(hIcon));
+    SendMessage(m_window, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(hIcon));
 
     // Setup the thumbnail
     winrt::check_hresult(DwmRegisterThumbnail(m_window, m_currentTarget, m_thumbnail.addressof()));
