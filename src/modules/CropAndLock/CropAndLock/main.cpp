@@ -22,6 +22,8 @@
 
 #pragma comment(linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
+#define HOTKEY_TOGGLE_PIN_ID 2
+
 namespace winrt
 {
     using namespace Windows::Foundation;
@@ -54,6 +56,32 @@ void handleTheme()
     }
 }
 
+void TogglePinWindow(HWND hwnd)
+{
+    auto theme = theme_listener.AppTheme;
+    auto isDark = theme == Theme::Dark;
+    ThemeHelpers::SetImmersiveDarkMode(hwnd, isDark);
+
+    // Toggle the "always on top" state of the window.
+    auto exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+    auto style = GetWindowLongPtr(hwnd, GWL_STYLE);
+    style |= WS_THICKFRAME;
+    if (exStyle & WS_EX_TOPMOST)
+    {
+        // Remove the "always on top" state and restore the window styles.
+        SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 12, 1, SWP_NOMOVE | SWP_NOSIZE);
+        style |= WS_CAPTION;
+    }
+    else
+    {
+        // Set the "always on top" state and remove the window styles to make it immovable.
+        SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, -12, -1, SWP_NOMOVE | SWP_NOSIZE);
+        style &= ~(WS_CAPTION);
+    }
+    SetWindowLongPtr(hwnd, GWL_STYLE, style);
+    SetWindowPos(hwnd, nullptr, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
+
+}
 
 int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR lpCmdLine, _In_ int)
 {
@@ -116,7 +144,7 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR lpCmdLine, _I
     });
 
     // NOTE: reparenting a window with a different DPI context has consequences.
-    //       See https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setparent#remarks
+    //       See https://learn.microsoft.com/en-us/windows/winuser/nf-winuser-setparent#remarks
     //       for more info.
     winrt::check_bool(SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2));
 
@@ -125,6 +153,12 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR lpCmdLine, _I
 
     // Setup Composition
     auto compositor = winrt::Compositor();
+
+    if (!RegisterHotKey(nullptr, HOTKEY_TOGGLE_PIN_ID, MOD_CONTROL, VK_F11))
+    {
+        Logger::error(L"Failed to register hotkey for toggling pin. {}", get_last_error_or_default(GetLastError()));
+        return 1;
+    }
 
     // Create our overlay window
     std::unique_ptr<OverlayWindow> overlayWindow;
@@ -282,10 +316,31 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR lpCmdLine, _I
     MSG msg = {};
     while (GetMessageW(&msg, nullptr, 0, 0))
     {
+        if (msg.message == WM_HOTKEY)
+        {
+            switch (msg.wParam)
+            {
+            case HOTKEY_TOGGLE_PIN_ID:
+            {
+                // Get the current window with focus
+                auto foregroundWindow = GetForegroundWindow();
+                if (foregroundWindow != nullptr)
+                {
+                    TogglePinWindow(foregroundWindow);
+                }
+                break;
+            }
+            default:
+                break;
+            }
+        }
+
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
     }
 
+    // Unregister the hotkeys
+    UnregisterHotKey(nullptr, HOTKEY_TOGGLE_PIN_ID);
     trace.Flush();
 
     Trace::CropAndLock::UnregisterProvider();
